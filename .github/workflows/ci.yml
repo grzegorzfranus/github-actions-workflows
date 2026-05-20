@@ -15,13 +15,78 @@ concurrency:
 
 jobs:
   # ================================================================
-  # 1. YAML SYNTAX VALIDATION
+  # 1. BRANCH NAME VALIDATION (Pre-hook)
+  # ----------------------------------------------------------------
+  # Enforces Git branch naming conventions. Rejects PR branches
+  # that do not use one of the standard enterprise prefixes.
+  # Runs first to fail fast and save runner execution minutes.
+  # ================================================================
+  branch-name-lint:
+    name: "Branch Name Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Validate branch name"
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # Pass automatically if this is not a pull request (e.g., push to main)
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            {
+              echo "### ✅ Branch Name Validation Skipped"
+              echo "Branch validation is only enforced on Pull Requests."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          REGEX="^(feature|bugfix|hotfix|release|docs|refactor|test|chore|ci)/.+"
+
+          if [[ ! "$BRANCH_NAME" =~ $REGEX ]]; then
+            echo "::error::Invalid branch name: '$BRANCH_NAME'"
+
+            # Generate Job Summary for GitHub UI using grouped redirects to prevent SC2129
+            {
+              echo "### ❌ Branch Name Validation Failed"
+              echo ""
+              echo "The source branch name **'$BRANCH_NAME'** does not conform to the repository naming conventions."
+              echo ""
+              echo "#### 🧭 Allowed Prefixes"
+              echo "- \`feature/\` (e.g., \`feature/add-workflows\`)"
+              echo "- \`bugfix/\` (e.g., \`bugfix/fix-trufflehog-tag\`)"
+              echo "- \`hotfix/\` (e.g., \`hotfix/critical-vulnerability-patch\`)"
+              echo "- \`release/\` (e.g., \`release/v1.0.0\`)"
+              echo "- \`docs/\` (e.g., \`docs/update-conventions\`)"
+              echo "- \`refactor/\` (e.g., \`refactor/cleanup-matrix\`)"
+              echo "- \`test/\` (e.g., \`test/add-molecule-scenario\`)"
+              echo "- \`chore/\` (e.g., \`chore/update-readme\`)"
+              echo "- \`ci/\` (e.g., \`ci/harden-actionlint\`)"
+              echo ""
+              echo "#### 💡 How to fix"
+              echo "Rename your branch locally using:"
+              echo "\`\`\`bash"
+              echo "git branch -m <new-name>"
+              echo "git push origin -u <new-name>"
+              echo "\`\`\`"
+              echo "Then close this PR and open a new one with the correct branch name."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 1
+          fi
+
+          {
+            echo "### ✅ Branch Name Validation Passed"
+            echo "Branch name **'$BRANCH_NAME'** conforms to conventions."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ================================================================
+  # 2. YAML SYNTAX VALIDATION
   # ----------------------------------------------------------------
   # Validates all workflow definitions for correct YAML syntax
-  # using yamllint with project-specific configuration.
+  # using yamllint. Depends on branch-name-lint.
   # ================================================================
   yaml-lint:
     name: "YAML Lint"
+    needs: [branch-name-lint]
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout repository"
@@ -34,15 +99,13 @@ jobs:
         run: yamllint .github/workflows/*.yml
 
   # ================================================================
-  # 2. GITHUB ACTIONS SCHEMA VALIDATION
+  # 3. GITHUB ACTIONS SCHEMA VALIDATION
   # ----------------------------------------------------------------
-  # Validates GitHub Actions-specific syntax including expressions,
-  # action references, and workflow_call schemas. For known false
-  # positives (e.g., workflow_call input resolution), use inline
-  # suppression comments rather than disabling the check entirely.
+  # Validates GitHub Actions-specific syntax. Depends on branch-name-lint.
   # ================================================================
   actions-lint:
     name: "Actions Lint"
+    needs: [branch-name-lint]
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout repository"
@@ -52,16 +115,15 @@ jobs:
         uses: raven-actions/actionlint@v2
 
   # ================================================================
-  # 3. MERGE CHECK — Single mandatory gate for PR merges
+  # 4. MERGE CHECK — Single mandatory gate for PR merges
   # ----------------------------------------------------------------
   # Aggregates all validation results into a single status check.
   # Configure this as the sole required check in branch protection
-  # rules to avoid updating rules when jobs are added or removed.
-  # Both yaml-lint and actions-lint are hard requirements.
+  # rules. All linting jobs are hard requirements.
   # ================================================================
   merge-check:
     name: "Merge Check"
-    needs: [yaml-lint, actions-lint]
+    needs: [yaml-lint, actions-lint, branch-name-lint]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -69,6 +131,7 @@ jobs:
         run: |
           echo "YAML Lint: ${{ needs.yaml-lint.result }}"
           echo "Actions Lint: ${{ needs.actions-lint.result }}"
+          echo "Branch Name Lint: ${{ needs.branch-name-lint.result }}"
 
           if [[ "${{ needs.yaml-lint.result }}" != "success" ]]; then
             echo "::error::YAML Lint failed"
@@ -77,6 +140,11 @@ jobs:
 
           if [[ "${{ needs.actions-lint.result }}" != "success" ]]; then
             echo "::error::Actions Lint failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.branch-name-lint.result }}" != "success" ]]; then
+            echo "::error::Branch Name Lint failed"
             exit 1
           fi
 
