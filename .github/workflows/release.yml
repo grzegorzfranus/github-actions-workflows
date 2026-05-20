@@ -50,11 +50,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          REPO="${{ github.repository }}"
           PR_NUMBER=$(gh pr list \
+            --repo "$REPO" \
             --head "release-please--branches--main" \
             --json number \
             --jq '.[0].number')
           PR_SHA=$(gh pr view "$PR_NUMBER" \
+            --repo "$REPO" \
             --json headRefOid \
             --jq '.headRefOid')
           echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
