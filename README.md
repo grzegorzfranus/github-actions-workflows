@@ -93,6 +93,9 @@ jobs:
 See [CONVENTIONS.md](CONVENTIONS.md) for naming standards, directory structure,
 and security practices.
 
+We also maintain a standard [.github/RELEASE_TEMPLATE.md](.github/RELEASE_TEMPLATE.md)
+for consistent, structured release notes across all repositories.
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for a list of all notable changes to this
