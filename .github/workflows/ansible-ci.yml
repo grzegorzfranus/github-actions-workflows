@@ -145,10 +145,14 @@ jobs:
           MOLECULE_DISTRO: ${{ matrix.distro }}
 
   # ================================================================
-  # 5. MERGE CHECK GATE
+  # 5. CI GATE — Internal quality gate for reusable workflow
+  # ----------------------------------------------------------------
+  # Aggregates all job results within this reusable workflow.
+  # Caller workflows should define their own "Merge Check" job
+  # that aggregates this workflow + any repo-specific gates.
   # ================================================================
-  merge-check:
-    name: "Merge Check"
+  ci-gate:
+    name: "CI Gate"
     needs: [yaml-lint, ansible-lint, security-scan, molecule-test]
     if: always()
     runs-on: ubuntu-latest
