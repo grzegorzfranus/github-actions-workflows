@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.6.3...v0.6.4) (2026-05-20)
+
+
+### Code Refactoring
+
+* simplify pre-publish validation in ansible-publish-galaxy ([#15](https://github.com/grzegorzfranus/github-actions-workflows/issues/15)) ([b29da30](https://github.com/grzegorzfranus/github-actions-workflows/commit/b29da309aaee4cf6e64848dd798109c5a8b4cf90))
+
 ## [0.6.3](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.6.2...v0.6.3) (2026-05-20)
 
 
