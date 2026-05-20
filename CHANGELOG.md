@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.6.2...v0.6.3) (2026-05-20)
+
+
+### Code Refactoring
+
+* rename internal merge-check to CI Gate ([#12](https://github.com/grzegorzfranus/github-actions-workflows/issues/12)) ([6ece884](https://github.com/grzegorzfranus/github-actions-workflows/commit/6ece884f28898edbc4c6aac6e2949e5d77d91017))
+
+
+### Miscellaneous
+
+* add changelog-sections to Release Please config ([#13](https://github.com/grzegorzfranus/github-actions-workflows/issues/13)) ([25ed987](https://github.com/grzegorzfranus/github-actions-workflows/commit/25ed987994e35d727db3b4191a10774bbbae2ba6))
+
 ## [0.6.2](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.6.1...v0.6.2) (2026-05-20)
 
 
