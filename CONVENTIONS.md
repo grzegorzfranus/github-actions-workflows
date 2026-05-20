@@ -104,7 +104,9 @@ Benefits:
 
 - No need to update branch protection when jobs are added or removed
 - Matrix jobs with dynamic names are covered automatically
-- Soft-fail jobs (like `actionlint`) do not block merges
+- All validation jobs are **hard requirements** — use inline suppression
+  comments (e.g., `#noinspection`, `# actionlint-ignore`) for known false
+  positives instead of `continue-on-error`
 
 ```yaml
 merge-check:

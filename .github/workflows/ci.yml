@@ -36,15 +36,14 @@ jobs:
   # ================================================================
   # 2. GITHUB ACTIONS SCHEMA VALIDATION
   # ----------------------------------------------------------------
-  # Validates GitHub Actions-specific syntax (expressions, action
-  # references, workflow_call schemas). Runs with continue-on-error
-  # since actionlint cannot fully resolve workflow_call input types
-  # from caller context.
+  # Validates GitHub Actions-specific syntax including expressions,
+  # action references, and workflow_call schemas. For known false
+  # positives (e.g., workflow_call input resolution), use inline
+  # suppression comments rather than disabling the check entirely.
   # ================================================================
   actions-lint:
     name: "Actions Lint"
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: "Checkout repository"
         uses: actions/checkout@v6
@@ -58,6 +57,7 @@ jobs:
   # Aggregates all validation results into a single status check.
   # Configure this as the sole required check in branch protection
   # rules to avoid updating rules when jobs are added or removed.
+  # Both yaml-lint and actions-lint are hard requirements.
   # ================================================================
   merge-check:
     name: "Merge Check"
@@ -67,8 +67,17 @@ jobs:
     steps:
       - name: "Evaluate results"
         run: |
+          echo "YAML Lint: ${{ needs.yaml-lint.result }}"
+          echo "Actions Lint: ${{ needs.actions-lint.result }}"
+
           if [[ "${{ needs.yaml-lint.result }}" != "success" ]]; then
-            echo "::error::YAML lint failed"
+            echo "::error::YAML Lint failed"
             exit 1
           fi
+
+          if [[ "${{ needs.actions-lint.result }}" != "success" ]]; then
+            echo "::error::Actions Lint failed"
+            exit 1
+          fi
+
           echo "All validations passed"

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `ci.yml` \u2014 actionlint is now a hard requirement in merge check gate (removed
+  `continue-on-error`)
+
 ## [0.1.0] - 2026-05-20
 
 ### Added
