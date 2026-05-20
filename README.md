@@ -1,6 +1,7 @@
 # github-actions-workflows
 
 [![CI](https://github.com/grzegorzfranus/github-actions-workflows/actions/workflows/ci.yml/badge.svg)](https://github.com/grzegorzfranus/github-actions-workflows/actions/workflows/ci.yml)
+[![Release](https://github.com/grzegorzfranus/github-actions-workflows/actions/workflows/release.yml/badge.svg)](https://github.com/grzegorzfranus/github-actions-workflows/actions/workflows/release.yml)
 [![License](https://img.shields.io/github/license/grzegorzfranus/github-actions-workflows)](LICENSE)
 
 Centralized, reusable GitHub Actions workflows for consistent CI/CD across all
@@ -99,7 +100,9 @@ for consistent, structured release notes across all repositories.
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for a list of all notable changes to this
-project.
+project. Releases are automated via
+[Release Please](https://github.com/googleapis/release-please) — see
+[Versioning and Releases](CONVENTIONS.md#versioning-and-releases) for details.
 
 ## License
 
