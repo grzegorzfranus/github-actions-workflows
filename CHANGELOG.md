@@ -5,7 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-05-20
+
+### Added
+
+- `ansible-ci.yml` — Reusable workflow for Ansible CI (YAML lint, Ansible lint, TruffleHog security scan, Molecule tests, merge check gate)
+- `ansible-publish-galaxy.yml` — Reusable workflow for publishing roles to Ansible Galaxy with pre-publish linting, validation, and retry logic
 
 ## [0.1.0] - 2026-05-20
 
