@@ -20,7 +20,7 @@ repositories.
 | Workflow | File | Description | Status |
 | -------- | ---- | ----------- | ------ |
 | Ansible CI | [`ansible-ci.yml`](.github/workflows/ansible-ci.yml) | Lint (YAML + Ansible) + Molecule tests + security scan | Active |
-| Ansible Publish | `ansible-publish-galaxy.yml` | Pre-publish validation + Galaxy import with retry | Planned |
+| Ansible Publish | [`ansible-publish-galaxy.yml`](.github/workflows/ansible-publish-galaxy.yml) | Pre-publish validation + Galaxy import with retry | Active |
 
 ## Quick Start
 

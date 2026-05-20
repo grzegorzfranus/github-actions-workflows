@@ -1,0 +1,124 @@
+---
+name: "Ansible Publish"
+
+on:
+  workflow_call:
+    inputs:
+      ansible-lint-profile:
+        description: "ansible-lint profile for validation (e.g., shared, production)"
+        type: string
+        default: "production"
+      python-version:
+        description: "Python version to use for all jobs"
+        type: string
+        default: "3.12"
+      enable-pre-publish-lint:
+        description: "Enable linting before publishing"
+        type: boolean
+        default: true
+    secrets:
+      galaxy-api-key:
+        description: "Ansible Galaxy API Key"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ================================================================
+  # 1. PRE-PUBLISH VALIDATION
+  # ================================================================
+  pre-publish-check:
+    name: "Pre-publish Validation"
+    if: ${{ inputs.enable-pre-publish-lint }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+
+      - name: "Set up Python ${{ inputs.python-version }}"
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: "Cache pip"
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ inputs.python-version }}-
+
+      - name: "Install validation tools"
+        run: pip install yamllint ansible-lint
+
+      - name: "Verify meta/main.yml exists"
+        run: |
+          if [ ! -f meta/main.yml ]; then
+            echo "::error::meta/main.yml is missing! This is required to publish an Ansible role."
+            exit 1
+          fi
+
+      - name: "Lint YAML files"
+        run: yamllint .
+
+      - name: "Run ansible-lint"
+        run: ansible-lint --profile ${{ inputs.ansible-lint-profile }} .
+
+  # ================================================================
+  # 2. PUBLISH TO GALAXY
+  # ================================================================
+  publish-galaxy:
+    name: "Publish to Galaxy"
+    needs: [pre-publish-check]
+    if: always() && (needs.pre-publish-check.result == 'success' || needs.pre-publish-check.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+
+      - name: "Set up Python ${{ inputs.python-version }}"
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: "Cache pip"
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ inputs.python-version }}-
+
+      - name: "Install ansible-core"
+        run: pip install ansible-core
+
+      - name: "Upload to Ansible Galaxy"
+        run: |
+          owner=$(echo "${{ github.repository }}" | cut -d/ -f1)
+          repo=$(echo "${{ github.repository }}" | cut -d/ -f2)
+
+          max_attempts=3
+          attempt=1
+          success=false
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "Attempt $attempt of $max_attempts: Importing role $owner.$repo to Ansible Galaxy..."
+            if ansible-galaxy role import --api-key "${{ secrets.galaxy-api-key }}" "$owner" "$repo"; then
+              success=true
+              break
+            else
+              echo "Error: Import failed."
+              if [ $attempt -lt $max_attempts ]; then
+                sleep_time=$((attempt * 15))
+                echo "Waiting $sleep_time seconds before retry..."
+                sleep $sleep_time
+              fi
+            fi
+            attempt=$((attempt + 1))
+          done
+
+          if [ "$success" = false ]; then
+            echo "::error::Failed to publish role after $max_attempts attempts."
+            exit 1
+          fi
