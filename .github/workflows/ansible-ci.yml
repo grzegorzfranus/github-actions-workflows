@@ -1,0 +1,181 @@
+---
+name: "Ansible CI"
+
+on:
+  workflow_call:
+    inputs:
+      ansible-lint-profile:
+        description: "ansible-lint profile (e.g., shared, production)"
+        type: string
+        default: "production"
+      molecule-scenarios:
+        description: "JSON array of scenarios to run (e.g., '[\"default\"]')"
+        type: string
+        default: '["default"]'
+      molecule-distros:
+        description: "JSON array of distros to test against (e.g., '[\"ubuntu2404\", \"debian12\", \"rockylinux9\"]')"
+        type: string
+        default: '["ubuntu2404", "debian12", "rockylinux9"]'
+      python-version:
+        description: "Python version to use for all jobs"
+        type: string
+        default: "3.12"
+      enable-security-scan:
+        description: "Enable TruffleHog secret scanning"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ================================================================
+  # 1. YAML SYNTAX VALIDATION
+  # ================================================================
+  yaml-lint:
+    name: "YAML Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+
+      - name: "Set up Python ${{ inputs.python-version }}"
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: "Cache pip"
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ inputs.python-version }}-
+
+      - name: "Install yamllint"
+        run: pip install yamllint
+
+      - name: "Lint YAML files"
+        run: yamllint .
+
+  # ================================================================
+  # 2. ANSIBLE LINT
+  # ================================================================
+  ansible-lint:
+    name: "Ansible Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+
+      - name: "Set up Python ${{ inputs.python-version }}"
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: "Cache pip"
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ inputs.python-version }}-
+
+      - name: "Install ansible-lint"
+        run: pip install ansible-lint
+
+      - name: "Run ansible-lint"
+        run: ansible-lint --profile ${{ inputs.ansible-lint-profile }} .
+
+  # ================================================================
+  # 3. SECURITY SCAN
+  # ================================================================
+  security-scan:
+    name: "Security Scan"
+    if: ${{ inputs.enable-security-scan }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: "Scan for secrets"
+        uses: trufflesecurity/trufflehog@v3
+
+  # ================================================================
+  # 4. MOLECULE TEST MATRIX
+  # ================================================================
+  molecule-test:
+    name: "Molecule — ${{ matrix.scenario }} / ${{ matrix.distro }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: ${{ fromJSON(inputs.molecule-scenarios) }}
+        distro: ${{ fromJSON(inputs.molecule-distros) }}
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+
+      - name: "Set up Python ${{ inputs.python-version }}"
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: "Cache pip"
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ inputs.python-version }}-
+
+      - name: "Install dependencies"
+        run: |
+          pip install ansible molecule molecule-plugins[docker] docker
+
+      - name: "Run Molecule test"
+        run: molecule test --scenario-name ${{ matrix.scenario }}
+        env:
+          PY_COLORS: '1'
+          ANSIBLE_FORCE_COLOR: '1'
+          MOLECULE_DISTRO: ${{ matrix.distro }}
+
+  # ================================================================
+  # 5. MERGE CHECK GATE
+  # ================================================================
+  merge-check:
+    name: "Merge Check"
+    needs: [yaml-lint, ansible-lint, security-scan, molecule-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Evaluate results"
+        run: |
+          echo "YAML Lint: ${{ needs.yaml-lint.result }}"
+          echo "Ansible Lint: ${{ needs.ansible-lint.result }}"
+          echo "Security Scan: ${{ needs.security-scan.result }}"
+          echo "Molecule Test: ${{ needs.molecule-test.result }}"
+
+          if [[ "${{ needs.yaml-lint.result }}" != "success" ]]; then
+            echo "::error::YAML Lint failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.ansible-lint.result }}" != "success" ]]; then
+            echo "::error::Ansible Lint failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.security-scan.result }}" != "success" && "${{ needs.security-scan.result }}" != "skipped" ]]; then
+            echo "::error::Security Scan failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.molecule-test.result }}" != "success" ]]; then
+            echo "::error::Molecule Test failed"
+            exit 1
+          fi
+
+          echo "All checks passed successfully"
