@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.6.1...v0.6.2) (2026-05-20)
+
+
+### Bug Fixes
+
+* add --repo flag to gh CLI in release validation ([baf5ab6](https://github.com/grzegorzfranus/github-actions-workflows/commit/baf5ab6329b135983386d5c11c2e3be71cd1ec39))
+* add --repo flag to gh CLI in release validation ([44526ad](https://github.com/grzegorzfranus/github-actions-workflows/commit/44526ad3881f29db6b635dc2dee0d77bfbe414cb))
+* enforce job ordering and upgrade actions/cache to v5 ([e2decc9](https://github.com/grzegorzfranus/github-actions-workflows/commit/e2decc985634b6654fbc140d85139bd25a17ce65))
+* enforce job ordering and upgrade actions/cache to v5 ([43c5acd](https://github.com/grzegorzfranus/github-actions-workflows/commit/43c5acd0bcc85cea9db6574ec92cddbdb718c834))
+
 ## [0.6.1](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.6.0...v0.6.1) (2026-05-20)
 
 
