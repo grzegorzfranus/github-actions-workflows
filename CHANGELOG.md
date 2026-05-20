@@ -5,7 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-05-20
+
+### Added
+
+- `release.yml` — Automated versioning and release management via Google Release Please
+- `release-please-config.json` — Release Please configuration (simple release type, v-prefixed tags)
+- `.release-please-manifest.json` — Version tracker for Release Please
+- Conventional Commits convention documented in `CONVENTIONS.md`
+- Versioning and Releases section added to `CONVENTIONS.md`
+
+### Changed
+
+- `ci.yml` — Branch name regex updated to allow `release-please--` auto-generated branches
 
 ## [0.4.0] - 2026-05-20
 

@@ -24,6 +24,38 @@ All branches created in this repository (and recommended for caller repositories
 
 Branch names are validated automatically on every Pull Request. Invalid branch names will fail the `Branch Name Lint` job and block the PR merge.
 
+## Commit Message Convention
+
+This repository uses [Conventional Commits](https://www.conventionalcommits.org/)
+for all commit messages. This enables automated versioning and changelog
+generation via [Release Please](https://github.com/googleapis/release-please).
+
+### Format
+
+```text
+<type>: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Type-to-Version Mapping
+
+| Type | Version Bump | Example |
+| ---- | ------------ | ------- |
+| `feat:` | Minor (0.4.0 → 0.5.0) | `feat: add terraform-validate workflow` |
+| `fix:` | Patch (0.4.0 → 0.4.1) | `fix: correct trufflehog action tag` |
+| `feat!:` / `BREAKING CHANGE:` | Major (0.x → 1.0.0) | `feat!: redesign workflow input schema` |
+| `docs:` | None (changelog only) | `docs: update README quick start` |
+| `chore:` | None (changelog only) | `chore: bump Python to 3.13` |
+| `ci:` | None (changelog only) | `ci: add branch name linter` |
+| `refactor:` | None (changelog only) | `refactor: extract matrix logic` |
+| `test:` | None (changelog only) | `test: add molecule scenario` |
+
+> **Note:** While pre-1.0, breaking changes (`feat!:`) bump minor instead of
+> major to prevent accidental 1.0.0 releases.
+
 ## File Naming
 
 Reusable workflows follow the schema:
@@ -102,7 +134,8 @@ steps:
 
 ```text
 .github/workflows/
-├── ci.yml                         # CI for this repo (yamllint + actionlint)
+├── ci.yml                         # CI for this repo (yamllint + actionlint + branch lint)
+├── release.yml                    # Automated versioning (Release Please)
 ├── ansible-ci.yml                 # Reusable: Ansible lint + molecule
 ├── ansible-publish-galaxy.yml     # Reusable: publish to Galaxy
 ├── terraform-validate.yml         # [Planned]
@@ -156,3 +189,33 @@ This repository follows [GitHub's security hardening guidelines](https://docs.gi
   runs and prevent resource waste.
 - **CODEOWNERS** — All workflow files require review from designated owners
   before merging.
+
+## Versioning and Releases
+
+This repository uses [Release Please](https://github.com/googleapis/release-please)
+by Google for fully automated versioning. The process works as follows:
+
+1. **Write Conventional Commits** — use `feat:`, `fix:`, `docs:`, etc.
+2. **Merge PRs to `main`** — Release Please analyzes commits automatically.
+3. **Release PR appears** — if releasable commits exist, Release Please
+   creates/updates a PR titled `chore(main): release X.Y.Z` with an updated
+   `CHANGELOG.md` and version bump.
+4. **Merge the Release PR** — this triggers:
+   - Git tag creation (e.g., `v0.5.0`)
+   - GitHub Release publication with auto-generated notes
+   - `CHANGELOG.md` and `.release-please-manifest.json` update
+
+### Configuration Files
+
+| File | Purpose |
+| ---- | ------- |
+| `release-please-config.json` | Release type, changelog path, tag format |
+| `.release-please-manifest.json` | Current version tracker (updated by bot) |
+
+### Referencing Workflows by Version
+
+Caller repositories should reference reusable workflows using a version tag:
+
+```yaml
+uses: grzegorzfranus/github-actions-workflows/.github/workflows/ansible-ci.yml@v0.5.0
+```
