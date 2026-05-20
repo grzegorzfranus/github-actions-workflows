@@ -8,6 +8,22 @@ workflows in this repository.
 All code, documentation, comments, commit messages, branch names, and PR
 descriptions **must be written in English**.
 
+## Branch Naming
+
+All branches created in this repository (and recommended for caller repositories) must follow a structured naming convention using category prefixes. This ensures logical grouping and clarity:
+
+- `feature/` — New features, additions, or enhancements (e.g., `feature/add-ansible-publish`)
+- `bugfix/` — Fixing a bug or unexpected behavior (e.g., `bugfix/fix-trufflehog-version`)
+- `hotfix/` — Critical fixes deployed directly to production (e.g., `hotfix/security-patch`)
+- `release/` — Release branches (e.g., `release/v0.4.0`)
+- `docs/` — Documentation updates (e.g., `docs/update-readme`)
+- `refactor/` — Code changes that neither fix a bug nor add a feature (e.g., `refactor/cleanup-matrix`)
+- `test/` — Adding missing tests or correcting existing tests (e.g., `test/add-molecule-case`)
+- `chore/` — Maintenance, updating build files or dependencies (e.g., `chore/bump-python-version`)
+- `ci/` — Pipeline, rules, or CI/CD specific changes (e.g., `ci/harden-actionlint`)
+
+Branch names are validated automatically on every Pull Request. Invalid branch names will fail the `Branch Name Lint` job and block the PR merge.
+
 ## File Naming
 
 Reusable workflows follow the schema:
