@@ -101,7 +101,7 @@ jobs:
           fetch-depth: 0
 
       - name: "Scan for secrets"
-        uses: trufflesecurity/trufflehog@v3
+        uses: trufflesecurity/trufflehog@main
 
   # ================================================================
   # 4. MOLECULE TEST MATRIX
