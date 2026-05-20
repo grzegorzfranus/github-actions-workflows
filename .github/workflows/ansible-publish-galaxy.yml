@@ -4,18 +4,10 @@ name: "Ansible Publish"
 on:
   workflow_call:
     inputs:
-      ansible-lint-profile:
-        description: "ansible-lint profile for validation (e.g., shared, production)"
-        type: string
-        default: "production"
       python-version:
         description: "Python version to use for all jobs"
         type: string
         default: "3.12"
-      enable-pre-publish-lint:
-        description: "Enable linting before publishing"
-        type: boolean
-        default: true
     secrets:
       galaxy-api-key:
         description: "Ansible Galaxy API Key"
@@ -27,30 +19,18 @@ permissions:
 jobs:
   # ================================================================
   # 1. PRE-PUBLISH VALIDATION
+  # ----------------------------------------------------------------
+  # Verifies that meta/main.yml exists — this file is required
+  # by Ansible Galaxy for role import. Lint checks (yamllint,
+  # ansible-lint) are NOT duplicated here as they already run
+  # in the CI pipeline before merge.
   # ================================================================
   pre-publish-check:
     name: "Pre-publish Validation"
-    if: ${{ inputs.enable-pre-publish-lint }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout repository"
         uses: actions/checkout@v6
-
-      - name: "Set up Python ${{ inputs.python-version }}"
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ inputs.python-version }}
-
-      - name: "Cache pip"
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-${{ inputs.python-version }}-
-
-      - name: "Install validation tools"
-        run: pip install yamllint ansible-lint
 
       - name: "Verify meta/main.yml exists"
         run: |
@@ -58,12 +38,7 @@ jobs:
             echo "::error::meta/main.yml is missing! This is required to publish an Ansible role."
             exit 1
           fi
-
-      - name: "Lint YAML files"
-        run: yamllint .
-
-      - name: "Run ansible-lint"
-        run: ansible-lint --profile ${{ inputs.ansible-lint-profile }} .
+          echo "meta/main.yml found — role is publishable"
 
   # ================================================================
   # 2. PUBLISH TO GALAXY
@@ -71,7 +46,6 @@ jobs:
   publish-galaxy:
     name: "Publish to Galaxy"
     needs: [pre-publish-check]
-    if: always() && (needs.pre-publish-check.result == 'success' || needs.pre-publish-check.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout repository"
@@ -83,7 +57,7 @@ jobs:
           python-version: ${{ inputs.python-version }}
 
       - name: "Cache pip"
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
