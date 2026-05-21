@@ -40,6 +40,34 @@ jobs:
           fi
           echo "meta/main.yml found — role is publishable"
 
+      - name: "Validate Galaxy description length"
+        run: |
+          LIMIT=255
+
+          # Extract description using Python/PyYAML for reliable YAML parsing
+          DESC=$(python3 -c "
+          import yaml, sys
+          with open('meta/main.yml') as f:
+              data = yaml.safe_load(f)
+          desc = data.get('galaxy_info', {}).get('description', '')
+          print(desc.strip() if desc else '')
+          " 2>/dev/null || echo "")
+
+          if [ -z "$DESC" ]; then
+            echo "::warning::No description found in meta/main.yml galaxy_info"
+            exit 0
+          fi
+
+          LEN=${#DESC}
+          echo "Description ($LEN/$LIMIT chars): $DESC"
+
+          if [ "$LEN" -gt "$LIMIT" ]; then
+            echo "::error::Galaxy description exceeds $LIMIT characters ($LEN chars). Shorten it to avoid Galaxy import rejection."
+            exit 1
+          fi
+
+          echo "Description length OK"
+
   # ================================================================
   # 2. PUBLISH TO GALAXY
   # ================================================================
