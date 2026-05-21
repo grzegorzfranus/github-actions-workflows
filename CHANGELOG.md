@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.7.0...v0.7.1) (2026-05-21)
+
+
+### Bug Fixes
+
+* remove push-to-main trigger from CI workflow ([#19](https://github.com/grzegorzfranus/github-actions-workflows/issues/19)) ([b4f3efe](https://github.com/grzegorzfranus/github-actions-workflows/commit/b4f3efe8aef0dc85659664f970ba9b46eb1e03cd))
+
 ## [0.7.0](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.6.4...v0.7.0) (2026-05-21)
 
 
