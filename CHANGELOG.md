@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.8.1...v0.8.2) (2026-05-22)
+
+
+### Bug Fixes
+
+* **ci:** upgrade aquasecurity/trivy-action to v0.36.0 ([#25](https://github.com/grzegorzfranus/github-actions-workflows/issues/25)) ([dfd50c5](https://github.com/grzegorzfranus/github-actions-workflows/commit/dfd50c5f604eb1587f9a14de92f7c75cc49da07c))
+
 ## [0.8.1](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.8.0...v0.8.1) (2026-05-22)
 
 
