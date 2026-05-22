@@ -77,6 +77,65 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ================================================================
+  # 1b. PR TITLE VALIDATION (Pre-hook)
+  # ----------------------------------------------------------------
+  # Enforces Conventional Commits naming conventions on PR titles.
+  # Runs first to fail fast and save runner execution minutes.
+  # ================================================================
+  pr-title-lint:
+    name: "PR Title Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Validate PR title"
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" != "pull_request" ]]; then
+            {
+              echo "### ✅ PR Title Validation Skipped"
+              echo "PR title validation is only enforced on Pull Requests."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          REGEX="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_-]+\))?!?: .+$"
+
+          if [[ ! "$PR_TITLE" =~ $REGEX ]]; then
+            echo "::error::Invalid PR title: '$PR_TITLE'"
+            {
+              echo "### ❌ PR Title Validation Failed"
+              echo ""
+              echo "The Pull Request title **'$PR_TITLE'** does not conform to Conventional Commits."
+              echo ""
+              echo "#### 🧭 Allowed Format"
+              echo "\`<type>(<scope>)!: <description>\` (scope and ! are optional)"
+              echo ""
+              echo "#### 💡 Allowed Types"
+              echo "- \`feat\` — New features"
+              echo "- \`fix\` — Bug fixes"
+              echo "- \`docs\` — Documentation updates"
+              echo "- \`style\` — Code style changes (whitespace, formatting)"
+              echo "- \`refactor\` — Code refactoring without behavior changes"
+              echo "- \`perf\` — Performance improvements"
+              echo "- \`test\` — Test additions or corrections"
+              echo "- \`build\` — Build system or dependency updates"
+              echo "- \`ci\` — CI/CD configurations"
+              echo "- \`chore\` — General maintenance tasks"
+              echo "- \`revert\` — Reverting previous commits"
+              echo ""
+              echo "#### 💡 How to fix"
+              echo "Edit the title of this Pull Request on GitHub to match the specification (e.g., \`feat(ci): add pr title validation\`)."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          {
+            echo "### ✅ PR Title Validation Passed"
+            echo "PR title **'$PR_TITLE'** conforms to Conventional Commits."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ================================================================
   # 2. YAML SYNTAX VALIDATION
   # ----------------------------------------------------------------
   # Validates all workflow definitions for correct YAML syntax
@@ -84,7 +143,7 @@ jobs:
   # ================================================================
   yaml-lint:
     name: "YAML Lint"
-    needs: [branch-name-lint]
+    needs: [branch-name-lint, pr-title-lint]
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout repository"
@@ -103,7 +162,7 @@ jobs:
   # ================================================================
   actions-lint:
     name: "Actions Lint"
-    needs: [branch-name-lint]
+    needs: [branch-name-lint, pr-title-lint]
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout repository"
@@ -121,7 +180,7 @@ jobs:
   # ================================================================
   merge-check:
     name: "Merge Check"
-    needs: [yaml-lint, actions-lint, branch-name-lint]
+    needs: [yaml-lint, actions-lint, branch-name-lint, pr-title-lint]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -130,6 +189,7 @@ jobs:
           echo "YAML Lint: ${{ needs.yaml-lint.result }}"
           echo "Actions Lint: ${{ needs.actions-lint.result }}"
           echo "Branch Name Lint: ${{ needs.branch-name-lint.result }}"
+          echo "PR Title Lint: ${{ needs.pr-title-lint.result }}"
 
           if [[ "${{ needs.yaml-lint.result }}" != "success" ]]; then
             echo "::error::YAML Lint failed"
@@ -143,6 +203,11 @@ jobs:
 
           if [[ "${{ needs.branch-name-lint.result }}" != "success" ]]; then
             echo "::error::Branch Name Lint failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.pr-title-lint.result }}" != "success" ]]; then
+            echo "::error::PR Title Lint failed"
             exit 1
           fi
 
