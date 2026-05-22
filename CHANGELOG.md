@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.7.1...v0.8.0) (2026-05-22)
+
+
+### Features
+
+* **ci:** enterprise hardening for ansible reusable workflow ([#21](https://github.com/grzegorzfranus/github-actions-workflows/issues/21)) ([78f3316](https://github.com/grzegorzfranus/github-actions-workflows/commit/78f33165f5a01735c3ba04c5d38c1a6833e1e203))
+
 ## [0.7.1](https://github.com/grzegorzfranus/github-actions-workflows/compare/v0.7.0...v0.7.1) (2026-05-21)
 
 
