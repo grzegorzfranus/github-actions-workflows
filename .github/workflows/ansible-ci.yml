@@ -202,6 +202,12 @@ jobs:
       - name: "Checkout repository"
         uses: actions/checkout@v6
 
+      - name: "Create dummy .trivyignore if missing"
+        run: |
+          if [ ! -f .trivyignore ]; then
+            echo "# Empty trivyignore file" > .trivyignore
+          fi
+
       - name: "Run Trivy IaC scan"
         uses: aquasecurity/trivy-action@v0.36.0
         with:
