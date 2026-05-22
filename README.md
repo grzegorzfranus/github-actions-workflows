@@ -20,8 +20,15 @@ repositories.
 
 | Workflow | File | Description | Status |
 | -------- | ---- | ----------- | ------ |
-| Ansible CI | [`ansible-ci.yml`](.github/workflows/ansible-ci.yml) | Lint (YAML + Ansible) + Molecule tests + security scan | Active |
+| Ansible CI | [`ansible-ci.yml`](.github/workflows/ansible-ci.yml) | Lint (YAML + Syntax + Ansible) + Security (TruffleHog + Trivy) + Galaxy metadata + Molecule (with idempotency) | Active |
 | Ansible Publish | [`ansible-publish-galaxy.yml`](.github/workflows/ansible-publish-galaxy.yml) | Pre-publish validation + Galaxy import with retry | Active |
+
+## Pipeline Architecture
+
+![Ansible CI Pipeline](docs/ansible-ci-pipeline.png)
+
+The pipeline runs 6 checks in parallel, gates Molecule tests behind all of them,
+and aggregates results in a final CI Gate with GitHub Step Summary.
 
 ## Quick Start
 
@@ -45,6 +52,9 @@ jobs:
       molecule-scenarios: '["default"]'
       molecule-distros: '["ubuntu2404", "debian12", "rockylinux9"]'
 ```
+
+> **Tip:** For reproducible builds, copy `requirements-ansible-ci.txt` to your role
+> repository and pass it via the `requirements-ci-file` input.
 
 ### Ansible Role — Publish to Galaxy
 
@@ -75,7 +85,10 @@ jobs:
 | `molecule-scenarios` | `string` | `'["default"]'` | JSON array of Molecule scenarios |
 | `molecule-distros` | `string` | `'["ubuntu2404", "debian12", "rockylinux9"]'` | JSON array of distro images |
 | `python-version` | `string` | `3.12` | Python version for all jobs |
-| `enable-security-scan` | `boolean` | `true` | Enable TruffleHog secret scanning |
+| `enable-security-scan` | `boolean` | `true` | Enable TruffleHog secret scanning and Trivy IaC scanning |
+| `enable-galaxy-metadata-check` | `boolean` | `true` | Enable Galaxy meta/main.yml validation |
+| `molecule-timeout` | `number` | `30` | Timeout in minutes for Molecule test jobs |
+| `requirements-ci-file` | `string` | `""` | Path to CI requirements.txt for pinned tool versions |
 
 #### `ansible-publish-galaxy.yml`
 

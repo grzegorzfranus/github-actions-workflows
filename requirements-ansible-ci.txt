@@ -1,0 +1,15 @@
+# =============================================================================
+# Ansible CI — Pinned Tool Versions (Reference)
+# =============================================================================
+# This file pins CI tool versions for reproducible builds.
+# Used by ansible-ci.yml reusable workflow via 'requirements-ci-file' input.
+#
+# Update policy: review and bump quarterly or on major releases.
+# =============================================================================
+
+ansible-core==2.17.8
+ansible-lint==25.4.0
+yamllint==1.37.0
+molecule==25.4.0
+molecule-plugins[docker]==23.5.3
+docker==7.1.0

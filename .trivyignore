@@ -1,0 +1,9 @@
+# Trivy Ignore File — Ansible Role
+# ==================================
+# Add Trivy finding IDs (AVD-xxx) here to suppress known false-positives.
+# Format: one ID per line, optional comment after #
+#
+# Example:
+# AVD-ANS-0001  # Acceptable: role requires elevated privileges
+#
+# Documentation: https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/#trivyignore

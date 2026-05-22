@@ -21,9 +21,21 @@ on:
         type: string
         default: "3.12"
       enable-security-scan:
-        description: "Enable TruffleHog secret scanning"
+        description: "Enable TruffleHog secret scanning and Trivy IaC scanning"
         type: boolean
         default: true
+      enable-galaxy-metadata-check:
+        description: "Enable Galaxy meta/main.yml validation"
+        type: boolean
+        default: true
+      molecule-timeout:
+        description: "Timeout in minutes for Molecule test jobs"
+        type: number
+        default: 30
+      requirements-ci-file:
+        description: "Path to CI requirements.txt for pinned tool versions (empty = use defaults)"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -35,6 +47,7 @@ jobs:
   yaml-lint:
     name: "YAML Lint"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: "Checkout repository"
         uses: actions/checkout@v6
@@ -48,22 +61,32 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements*.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-${{ inputs.python-version }}-
 
       - name: "Install yamllint"
-        run: pip install yamllint
+        run: |
+          if [ -n "${{ inputs.requirements-ci-file }}" ] && [ -f "${{ inputs.requirements-ci-file }}" ]; then
+            pip install -r "${{ inputs.requirements-ci-file }}"
+          else
+            pip install yamllint
+          fi
 
       - name: "Lint YAML files"
         run: yamllint .
 
   # ================================================================
-  # 2. ANSIBLE LINT
+  # 2. ANSIBLE SYNTAX CHECK
+  # ----------------------------------------------------------------
+  # First line of defense — validates YAML/Ansible structure without
+  # executing anything. Faster and lighter than ansible-lint.
+  # Red Hat requires this as a separate step.
   # ================================================================
-  ansible-lint:
-    name: "Ansible Lint"
+  syntax-check:
+    name: "Syntax Check"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: "Checkout repository"
         uses: actions/checkout@v6
@@ -77,23 +100,83 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ inputs.python-version }}-
+
+      - name: "Install ansible-core"
+        run: |
+          if [ -n "${{ inputs.requirements-ci-file }}" ] && [ -f "${{ inputs.requirements-ci-file }}" ]; then
+            pip install -r "${{ inputs.requirements-ci-file }}"
+          else
+            pip install ansible-core
+          fi
+
+      - name: "Run syntax check on all playbooks"
+        run: |
+          exit_code=0
+          found=0
+          while IFS= read -r -d '' playbook; do
+            found=1
+            echo "Checking: $playbook"
+            if ! ansible-playbook --syntax-check "$playbook"; then
+              exit_code=1
+            fi
+          done < <(find . -name "*.yml" -path "*/molecule/*/converge.yml" -print0 \
+                    -o -name "*.yml" -path "*/molecule/*/verify.yml" -print0 \
+                    -o -name "*.yml" -path "*/molecule/*/prepare.yml" -print0 \
+                    -o -name "*.yml" -path "*/playbooks/*.yml" -print0)
+          if [ "$found" -eq 0 ]; then
+            echo "No playbooks found to check — skipping"
+          fi
+          exit $exit_code
+
+  # ================================================================
+  # 3. ANSIBLE LINT
+  # ================================================================
+  ansible-lint:
+    name: "Ansible Lint"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+
+      - name: "Set up Python ${{ inputs.python-version }}"
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: "Cache pip"
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements*.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-${{ inputs.python-version }}-
 
       - name: "Install ansible-lint"
-        run: pip install ansible-lint
+        run: |
+          if [ -n "${{ inputs.requirements-ci-file }}" ] && [ -f "${{ inputs.requirements-ci-file }}" ]; then
+            pip install -r "${{ inputs.requirements-ci-file }}"
+          else
+            pip install ansible-lint
+          fi
 
       - name: "Run ansible-lint"
         run: ansible-lint --profile ${{ inputs.ansible-lint-profile }} .
 
   # ================================================================
-  # 3. SECURITY SCAN
+  # 4. SECURITY SCAN — Secret Detection (TruffleHog)
+  # ----------------------------------------------------------------
+  # Deep git history scan with live API verification.
+  # Detects leaked credentials across all commits, branches, and tags.
   # ================================================================
   security-scan:
     name: "Security Scan"
     if: ${{ inputs.enable-security-scan }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: "Checkout repository"
         uses: actions/checkout@v6
@@ -101,16 +184,95 @@ jobs:
           fetch-depth: 0
 
       - name: "Scan for secrets"
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@v3.88.28
 
   # ================================================================
-  # 4. MOLECULE TEST MATRIX
+  # 5. SECURITY IaC SCAN — Misconfiguration Detection (Trivy)
+  # ----------------------------------------------------------------
+  # Scans Ansible code for security misconfigurations (e.g., insecure
+  # file permissions, missing hardening). Complements TruffleHog
+  # which only detects leaked secrets.
+  # ================================================================
+  security-iac-scan:
+    name: "Security IaC Scan"
+    if: ${{ inputs.enable-security-scan }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+
+      - name: "Run Trivy IaC scan"
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          scanners: "misconfig"
+          severity: "HIGH,CRITICAL"
+          exit-code: "1"
+          format: "table"
+          trivyignores: ".trivyignore"
+        env:
+          TRIVY_MISCONFIG_SCANNERS: "ansible"
+
+  # ================================================================
+  # 6. GALAXY METADATA VALIDATION
+  # ----------------------------------------------------------------
+  # Validates meta/main.yml for Ansible Galaxy publishing readiness.
+  # Checks required fields, description length, and platform support.
+  # ================================================================
+  galaxy-metadata-check:
+    name: "Galaxy Metadata"
+    if: ${{ inputs.enable-galaxy-metadata-check }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+
+      - name: "Validate meta/main.yml"
+        run: |
+          if [ ! -f meta/main.yml ]; then
+            echo "::warning::meta/main.yml not found — skipping Galaxy validation"
+            exit 0
+          fi
+
+          echo "Validating Galaxy metadata..."
+
+          python3 -c "
+          import yaml, sys
+          with open('meta/main.yml') as f:
+              data = yaml.safe_load(f)
+          gi = data.get('galaxy_info', {})
+          errors = []
+          for field in ['author', 'description', 'license', 'min_ansible_version']:
+              if not gi.get(field):
+                  errors.append(f'Missing required field: galaxy_info.{field}')
+          desc = gi.get('description', '')
+          if desc and len(desc) > 255:
+              errors.append(f'Description too long: {len(desc)}/255 chars')
+          if not gi.get('platforms'):
+              errors.append('No platforms defined in galaxy_info')
+          if errors:
+              for e in errors:
+                  print(f'::error::{e}')
+              sys.exit(1)
+          print('Galaxy metadata validation passed')
+          "
+
+  # ================================================================
+  # 7. MOLECULE TEST MATRIX
+  # ----------------------------------------------------------------
+  # Functional testing with idempotency verification.
+  # Runs after ALL parallel checks pass to avoid wasting runner
+  # minutes on expensive container-based tests.
   # ================================================================
   molecule-test:
     name: "Molecule — ${{ matrix.scenario }} / ${{ matrix.distro }}"
-    needs: [yaml-lint, ansible-lint, security-scan]
+    needs: [yaml-lint, ansible-lint, syntax-check, security-scan, security-iac-scan, galaxy-metadata-check]
     if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.molecule-timeout }}
     strategy:
       fail-fast: false
       matrix:
@@ -129,15 +291,19 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements*.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-${{ inputs.python-version }}-
 
       - name: "Install dependencies"
         run: |
-          pip install ansible molecule molecule-plugins[docker] docker
+          if [ -n "${{ inputs.requirements-ci-file }}" ] && [ -f "${{ inputs.requirements-ci-file }}" ]; then
+            pip install -r "${{ inputs.requirements-ci-file }}"
+          else
+            pip install ansible molecule molecule-plugins[docker] docker
+          fi
 
-      - name: "Run Molecule test"
+      - name: "Run Molecule test (with idempotency)"
         run: molecule test --scenario-name ${{ matrix.scenario }}
         env:
           PY_COLORS: '1'
@@ -145,7 +311,7 @@ jobs:
           MOLECULE_DISTRO: ${{ matrix.distro }}
 
   # ================================================================
-  # 5. CI GATE — Internal quality gate for reusable workflow
+  # 8. CI GATE — Internal quality gate for reusable workflow
   # ----------------------------------------------------------------
   # Aggregates all job results within this reusable workflow.
   # Caller workflows should define their own "Merge Check" job
@@ -153,19 +319,28 @@ jobs:
   # ================================================================
   ci-gate:
     name: "CI Gate"
-    needs: [yaml-lint, ansible-lint, security-scan, molecule-test]
+    needs: [yaml-lint, syntax-check, ansible-lint, security-scan, security-iac-scan, galaxy-metadata-check, molecule-test]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: "Evaluate results"
         run: |
-          echo "YAML Lint: ${{ needs.yaml-lint.result }}"
-          echo "Ansible Lint: ${{ needs.ansible-lint.result }}"
-          echo "Security Scan: ${{ needs.security-scan.result }}"
-          echo "Molecule Test: ${{ needs.molecule-test.result }}"
+          echo "YAML Lint:        ${{ needs.yaml-lint.result }}"
+          echo "Syntax Check:     ${{ needs.syntax-check.result }}"
+          echo "Ansible Lint:     ${{ needs.ansible-lint.result }}"
+          echo "Security Scan:    ${{ needs.security-scan.result }}"
+          echo "IaC Security:     ${{ needs.security-iac-scan.result }}"
+          echo "Galaxy Metadata:  ${{ needs.galaxy-metadata-check.result }}"
+          echo "Molecule Test:    ${{ needs.molecule-test.result }}"
 
           if [[ "${{ needs.yaml-lint.result }}" != "success" ]]; then
             echo "::error::YAML Lint failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.syntax-check.result }}" != "success" ]]; then
+            echo "::error::Syntax Check failed"
             exit 1
           fi
 
@@ -179,9 +354,36 @@ jobs:
             exit 1
           fi
 
+          if [[ "${{ needs.security-iac-scan.result }}" != "success" && "${{ needs.security-iac-scan.result }}" != "skipped" ]]; then
+            echo "::error::Security IaC Scan (Trivy) failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.galaxy-metadata-check.result }}" != "success" && "${{ needs.galaxy-metadata-check.result }}" != "skipped" ]]; then
+            echo "::error::Galaxy Metadata check failed"
+            exit 1
+          fi
+
           if [[ "${{ needs.molecule-test.result }}" != "success" ]]; then
             echo "::error::Molecule Test failed"
             exit 1
           fi
 
           echo "All checks passed successfully"
+
+      - name: "Generate summary"
+        if: always()
+        run: |
+          {
+            echo "## 🔍 Ansible CI Results"
+            echo ""
+            echo "| Check | Result |"
+            echo "|-------|--------|"
+            echo "| YAML Lint | ${{ needs.yaml-lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |"
+            echo "| Syntax Check | ${{ needs.syntax-check.result == 'success' && '✅ Passed' || '❌ Failed' }} |"
+            echo "| Ansible Lint | ${{ needs.ansible-lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |"
+            echo "| Security Scan (TruffleHog) | ${{ needs.security-scan.result == 'success' && '✅ Passed' || needs.security-scan.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |"
+            echo "| IaC Security (Trivy) | ${{ needs.security-iac-scan.result == 'success' && '✅ Passed' || needs.security-iac-scan.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |"
+            echo "| Galaxy Metadata | ${{ needs.galaxy-metadata-check.result == 'success' && '✅ Passed' || needs.galaxy-metadata-check.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |"
+            echo "| Molecule Tests | ${{ needs.molecule-test.result == 'success' && '✅ Passed' || '❌ Failed' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
